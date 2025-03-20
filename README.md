@@ -18,12 +18,12 @@ This system uses a hybrid architecture with multiple specialized AI agents to gu
 ## System Architecture
 
 ### Agent Layer
-- Master Agent: Orchestrates workflow and coordinates other agents
-- Conversational Agent: Handles natural language dialogue with users
-- Validation Agent: Ensures strategies are valid and complete
-- Data/Feature Agent: Retrieves and processes market data
-- Code Agent: Generates executable strategy code
-- Feedback Agent: Analyzes results and suggests improvements
+- **Master Agent**: Orchestrates workflow and coordinates other agents ✅
+- **Conversational Agent**: Handles natural language dialogue with users ✅
+- **Validation Agent**: Ensures strategies are valid and complete ✅
+- **Data/Feature Agent**: Retrieves and processes market data ⏳
+- **Code Agent**: Generates executable strategy code 🔜
+- **Feedback Agent**: Analyzes results and suggests improvements 🔜
 
 ### Technology Stack
 - **Frontend**: React (JavaScript)
@@ -31,13 +31,25 @@ This system uses a hybrid architecture with multiple specialized AI agents to gu
 - **Agentic Layer**: LangChain with Claude 3.7 Sonnet
 - **Data Layer**: Neo4j, InfluxDB, SQLite/PostgreSQL
 
+## Current Status
+
+The project is currently in **v0.2.2** with the following components implemented:
+- ✅ Development environment and project structure
+- ✅ User authentication system with JWT tokens
+- ✅ Database connection framework (SQLite, Neo4j)
+- ✅ Master agent for orchestration
+- ✅ Conversational agent for natural language interaction
+- ✅ Validation agent with parameter checking and LLM-powered consistency verification
+- ⏳ Neo4j integration for knowledge-based validation
+- 🔜 Strategy management endpoints
+- 🔜 Code generation agent
+
 ## Getting Started
 
 ### Prerequisites
 - Python 3.9+
-- Node.js 16+
-- Neo4j Database
-- InfluxDB Database
+- Docker and Docker Compose (for database services)
+- Anthropic API key (for Claude 3.7 Sonnet integration)
 
 ### Installation
 
@@ -47,29 +59,53 @@ This system uses a hybrid architecture with multiple specialized AI agents to gu
    cd MultiAgentTradingSystemV2
    ```
 
-2. Install backend dependencies
+2. Create and activate a virtual environment
    ```
-   python -m pip install -e ".[dev]"
+   python -m venv venv
+   source venv/bin/activate  # On Windows, use: venv\Scripts\activate
    ```
 
-3. Install frontend dependencies
+3. Install backend dependencies
    ```
-   cd frontend
-   npm install
+   python -m pip install -e .
+   # or
+   pip install -r requirements.txt
+   ```
+
+4. Start the database services
+   ```
+   cd docker
+   docker-compose up -d
+   ```
+
+5. Initialize the databases
+   ```
+   python -m src.database.init
    ```
 
 ### Running the Application
 
-1. Start the backend server
+1. Set up environment variables in `.env` file
    ```
-   uvicorn app.main:app --reload
+   # Example .env file
+   ANTHROPIC_API_KEY=your_anthropic_api_key
+   SECRET_KEY=your_secret_key
    ```
 
-2. Start the frontend development server
+2. Start the backend server
+   ```
+   ./run.sh server
+   # or
+   uvicorn src.app.main:app --reload
+   ```
+
+3. Start the frontend development server (not implemented yet)
    ```
    cd frontend
    npm start
    ```
+
+4. Visit the API documentation at `http://localhost:8000/docs`
 
 ## Development Workflow
 

@@ -1,6 +1,6 @@
 from typing import Dict, Any, Optional, List
 from .base import Agent
-from langchain.llms import Anthropic
+from langchain_anthropic import ChatAnthropic
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 
@@ -23,7 +23,7 @@ class MasterAgent(Agent):
         
         # Initialize LLM (will be used for routing decisions)
         # For testing we'll use a dummy setup, in production we'd use actual Claude
-        self.llm = Anthropic(model_name="claude-3-7-sonnet-20250219")
+        self.llm = ChatAnthropic(model_name="claude-3-7-sonnet-20250219")
         
         # Initialize state
         self.conversation_state = {}
@@ -123,7 +123,16 @@ class MasterAgent(Agent):
         
         # Determine which agent should handle this message
         if "content" in message:
-            destination = self.route_message(message["content"], current_state)
+            # Ensure content is in the expected format
+            content_text = message["content"]
+            if isinstance(content_text, str):
+                # Convert string content to dict for the conversation agent
+                message["content"] = {"text": content_text}
+            
+            destination = self.route_message(
+                content_text if isinstance(content_text, str) else str(content_text), 
+                current_state
+            )
         else:
             # Default to conversation agent if no content
             destination = "conversation"
