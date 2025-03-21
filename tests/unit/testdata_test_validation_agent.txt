@@ -1,0 +1,51 @@
+# Correct input:
+
+{
+  "strategy_params": {
+    "strategy_type": "momentum",
+    "symbol": "AAPL",
+    "timeframe": "1d",
+    "parameters": {
+      "lookback_period": 20,
+      "threshold": 0.02
+    },
+    "stop_loss": 0.05,
+    "take_profit": 0.1
+  },
+  "session_id": "test-session"
+}
+
+
+# Try a momentum strategy with parameters outside recommended ranges:
+
+{
+  "strategy_params": {
+    "strategy_type": "momentum",
+    "symbol": "AAPL",
+    "timeframe": "1d",
+    "parameters": {
+      "lookback_period": 5,
+      "threshold": 0.001
+    },
+    "stop_loss": 0.05,
+    "take_profit": 0.1
+  },
+  "session_id": "test-session"
+}
+
+# Try a completely invalid strategy:
+
+{
+  "strategy_params": {
+    "strategy_type": "momentum",
+    "symbol": "AAPL",
+    "timeframe": "1d",
+    "parameters": {
+      "lookback_period": 600,
+      "threshold": 0.6
+    },
+    "stop_loss": 0.05,
+    "take_profit": 0.1
+  },
+  "session_id": "test-session"
+}

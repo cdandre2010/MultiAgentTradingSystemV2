@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  # Neo4j Graph Database
+  neo4j:
+    image: neo4j:5.9.0
+    container_name: mats_neo4j
+    ports:
+      - "7474:7474"  # HTTP
+      - "7687:7687"  # Bolt
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - neo4j_import:/var/lib/neo4j/import
+      - neo4j_plugins:/plugins
+    environment:
+      - NEO4J_AUTH=neo4j/password  # Change this in production!
+      - NEO4J_dbms_memory_heap_initial__size=512M
+      - NEO4J_dbms_memory_heap_max__size=2G
+    networks:
+      - mats_network
+
+  # InfluxDB Time Series Database
+  influxdb:
+    image: influxdb:2.7.1
+    container_name: mats_influxdb
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+      - influxdb_config:/etc/influxdb2
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=password  # Change this in production!
+      - DOCKER_INFLUXDB_INIT_ORG=mats_org
+      - DOCKER_INFLUXDB_INIT_BUCKET=market_data
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=mats_token  # Change this in production!
+    networks:
+      - mats_network
+
+  # Redis for caching
+  redis:
+    image: redis:7.2.1-alpine
+    container_name: mats_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - mats_network
+
+volumes:
+  neo4j_data:
+  neo4j_logs:
+  neo4j_import:
+  neo4j_plugins:
+  influxdb_data:
+  influxdb_config:
+  redis_data:
+
+networks:
+  mats_network:
+    driver: bridge

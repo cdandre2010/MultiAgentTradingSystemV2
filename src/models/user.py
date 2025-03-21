@@ -28,8 +28,9 @@ class UserInDB(UserBase):
     last_login: Optional[datetime] = None
     is_active: bool = True
     
-    class Config:
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }
 
 
 class User(UserBase):
@@ -37,9 +38,11 @@ class User(UserBase):
     id: str
     created_at: datetime
     last_login: Optional[datetime] = None
+    is_active: bool = True
     
-    class Config:
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }
 
 
 class UserPreferences(BaseModel):
