@@ -38,6 +38,7 @@
 
 ## Code Style Guidelines
 - **Architecture**: Agent-based with Master, Conversational, Validation, Data/Feature, Code, and Feedback agents (Master, Conversational, and Validation agents implemented; others planned)
+- **Knowledge-Driven Approach**: ConversationalAgent constructs strategies by querying Neo4j for appropriate components, ValidationAgent verifies using relationship data
 - **API Design**: RESTful endpoints with OAuth2 authentication, consistent error responses
 - **Imports**: Group standard library → third-party → local with alphabetical sorting
 - **Formatting**: Use Black with 88 character line length, isort for import sorting

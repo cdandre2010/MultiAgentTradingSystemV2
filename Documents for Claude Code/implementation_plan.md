@@ -102,7 +102,7 @@ test('renders login form', () => {
 
 ## Phase 2: Strategy Creation and Multi-Agent Architecture
 
-### Task 2.1: Agent Architecture Implementation
+### Task 2.1: Agent Architecture and Comprehensive Strategy Model
 
 ```python
 # Test: Agent Communication
@@ -117,47 +117,109 @@ def test_agent_communication():
     assert "type" in response
     assert response["type"] == "response"
     assert "content" in response
+
+# Test: Comprehensive Strategy Model
+def test_comprehensive_strategy_model():
+    strategy = Strategy(
+        name="Test Strategy",
+        strategy_type="momentum",
+        instrument="BTCUSDT",
+        frequency="1h",
+        indicators=[
+            Indicator(name="RSI", parameters={"period": 14})
+        ],
+        conditions=[
+            Condition(type="entry", logic="RSI < 30")
+        ],
+        position_sizing=PositionSizing(
+            method="risk_based",
+            risk_per_trade=0.01
+        ),
+        risk_management=RiskManagement(
+            stop_loss=0.05,
+            take_profit=0.15,
+            max_positions=2
+        ),
+        backtesting=BacktestingConfig(
+            method="walk_forward",
+            in_sample_size="6M",
+            out_sample_size="2M",
+            windows=3
+        ),
+        trade_management=TradeManagement(
+            stop_type="trailing",
+            partial_exits=[{"threshold": 0.05, "size": 0.5}]
+        )
+    )
+    
+    # Verify model validation
+    assert strategy.is_valid()
+    
+    # Verify JSON serialization
+    strategy_json = strategy.json()
+    assert "momentum" in strategy_json
+    assert "backtesting" in strategy_json
+    assert "trade_management" in strategy_json
 ```
 
 **Implementation Steps:**
-1. Define agent interface with standard message format
-2. Implement MasterAgent class for orchestration
-3. Create base Agent class with common functionality
-4. Set up message routing between agents
-5. Implement state management for conversation context
+1. Create comprehensive strategy model with:
+   - Basic strategy information
+   - Market & instrument configuration
+   - Technical analysis components
+   - Signal generation logic
+   - Position & risk management
+   - Trade management
+   - Backtesting configuration
+   - Performance measurement
 
-### Task 2.2: Conversational Agent
+2. Define agent interface with standard message format
+3. Implement MasterAgent class for orchestration
+4. Create base Agent class with common functionality
+5. Set up message routing between agents
+6. Implement state management for conversation context
+
+### Task 2.2: Knowledge-Driven Conversational Agent
 
 ```python
-# Test: Strategy Type Selection
-def test_strategy_type_selection():
+# Test: Strategy Type Selection with Knowledge Graph
+def test_knowledge_driven_strategy_creation():
     agent = ConversationalAgent()
     
     # Test strategy type prompt
     response = agent.process_message({
         "type": "user_input",
-        "content": "I want to create a momentum strategy"
+        "content": "I want to create a momentum strategy for Bitcoin"
     })
     
     assert "momentum" in response["content"].lower()
-    assert response["metadata"]["current_step"] == "select_instrument"
+    assert "BTCUSDT" in str(response["metadata"])
+    
+    # Check that recommended components were pulled from Neo4j
+    strategy = response["metadata"]["current_strategy"]
+    assert "RSI" in str(strategy["indicators"])  # RSI is commonly used with momentum strategies in Neo4j
+    assert strategy["metadata"]["source"] == "knowledge_graph"
 ```
 
 **Implementation Steps:**
 1. Set up LangChain with Claude 3.7 Sonnet
-2. Create conversation flow manager
-3. Implement prompt templates for each strategy step
+2. Create Neo4j repository for strategy components
+3. Implement knowledge-driven conversation flow manager
+   - Query Neo4j for appropriate strategy templates
+   - Pull compatible indicators based on strategy type
+   - Recommend default parameters from knowledge graph
 4. Add context management for conversation history
 5. Create natural language parser for user inputs
+6. Implement strategy template construction with Neo4j components
 
-### Task 2.3: Validation Agent
+### Task 2.3: Knowledge-Based Validation Agent
 
 ```python
-# Test: Parameter Validation
-def test_parameter_validation():
+# Test: Neo4j-Based Parameter Validation
+def test_knowledge_based_validation():
     validator = ValidationAgent()
     
-    # Test invalid parameter
+    # Test invalid parameter using Neo4j knowledge
     result = validator.validate_parameter({
         "indicator": "RSI",
         "parameter": "period",
@@ -166,14 +228,29 @@ def test_parameter_validation():
     
     assert result["valid"] is False
     assert "minimum value" in result["message"]
+    
+    # Test strategy component compatibility
+    result = validator.validate_strategy_components({
+        "strategy_type": "momentum",
+        "indicators": [{"name": "Bollinger Bands"}]  # Uncommon for momentum strategies in knowledge graph
+    })
+    
+    assert "warning" in result
+    assert "compatibility score" in result["warning"] 
+    assert "RSI" in result["suggestions"][0]  # RSI should be suggested as more compatible
 ```
 
 **Implementation Steps:**
 1. Implement validation rules engine
-2. Create Neo4j query adapters for relationship validation
+2. Create Neo4j repository with comprehensive validation queries:
+   - Query parameter ranges from knowledge graph
+   - Check component compatibility scores
+   - Validate instrument-timeframe compatibility
+   - Examine relationship strengths between components
 3. Add parameter range validation
 4. Implement strategy completeness verification
-5. Create human-readable explanation generator
+5. Create LLM-powered explanation generator
+6. Add knowledge-driven improvement suggestions
 
 ### Task 2.4: Strategy Creation Frontend
 
@@ -202,10 +279,10 @@ test('allows indicator selection', async () => {
 
 ## Phase 3: Data Handling and Backtesting
 
-### Task 3.1: InfluxDB Setup
+### Task 3.1: InfluxDB Setup and Data Configuration
 
 ```python
-# Test: InfluxDB Data Storage
+# Test: InfluxDB Data Storage and Retrieval
 def test_influxdb_data_storage():
     client = InfluxDBClient()
     
@@ -220,6 +297,24 @@ def test_influxdb_data_storage():
     
     assert len(result) > 0
     assert result[0].records[0].values.get("close") == 50000.0
+
+# Test: Data Availability Check
+def test_data_availability_check():
+    data_manager = DataManager()
+    
+    # Test availability check
+    availability = data_manager.check_availability({
+        "instrument": "BTCUSDT",
+        "frequency": "1h",
+        "start_date": "2023-01-01",
+        "end_date": "2023-01-31",
+        "required_fields": ["open", "high", "low", "close", "volume"]
+    })
+    
+    assert "is_complete" in availability
+    assert "missing_dates" in availability
+    assert "missing_fields" in availability
+    assert "data_source" in availability
 ```
 
 **Implementation Steps:**
@@ -228,8 +323,12 @@ def test_influxdb_data_storage():
 3. Implement data ingestion pipeline
 4. Add data versioning mechanism
 5. Create data retrieval API
+6. Create DataConfig models for strategy configuration
+7. Implement data availability checking mechanism
+8. Add intelligent data source selection based on availability
+9. Create data caching system for external sources
 
-### Task 3.2: Data and Feature Agent
+### Task 3.2: Data and Feature Agent with Strategy Integration
 
 ```python
 # Test: Indicator Calculation
@@ -250,14 +349,52 @@ def test_indicator_calculation():
     assert len(result["data"]) > 0
     assert "timestamp" in result["data"][0]
     assert "value" in result["data"][0]
+
+# Test: Strategy Data Requirements Handling
+def test_strategy_data_requirements():
+    agent = DataFeatureAgent()
+    
+    # Create strategy with data config
+    strategy = Strategy(
+        name="Test Strategy",
+        strategy_type="momentum",
+        instrument="BTCUSDT",
+        frequency="1h",
+        indicators=[
+            Indicator(name="RSI", parameters={"period": 14})
+        ],
+        data_config=DataConfig(
+            sources=[
+                DataSource(type="influxdb", priority=1),
+                DataSource(type="binance", priority=2)
+            ],
+            backtest_range=BacktestDataRange(
+                start_date="2023-01-01",
+                end_date="2023-01-31",
+                lookback_period="30D"
+            )
+        )
+    )
+    
+    # Test data preparation for strategy
+    data_result = agent.prepare_data_for_strategy(strategy.id)
+    
+    assert "data_source" in data_result
+    assert "data_completeness" in data_result
+    assert "timeframe" in data_result
+    assert data_result["data_completeness"] >= 0.95  # At least 95% of data is available
 ```
 
 **Implementation Steps:**
-1. Implement technical indicator library
-2. Create parallel processing manager
-3. Add data caching mechanism
-4. Implement feature matrix generation
-5. Create visualization data formatters
+1. Implement comprehensive DataConfig model in strategy
+2. Create technical indicator library
+3. Implement data source priority manager
+4. Design data availability checking system
+5. Build smart data retrieval with caching
+6. Add parallel processing for large data sets
+7. Implement feature matrix generation
+8. Create visualization data formatters
+9. Add ConversationalAgent integration for data requirements dialog
 
 ### Task 3.3: Backtesting Engine
 

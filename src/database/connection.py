@@ -1,9 +1,13 @@
 from typing import Dict, Any, Optional
 import sqlite3
+import threading
 from neo4j import GraphDatabase
 from influxdb_client import InfluxDBClient
 import redis
 from ..app.config import settings
+
+# Thread-local storage for SQLite connections
+_thread_local = threading.local()
 
 
 class DatabaseManager:
@@ -14,7 +18,7 @@ class DatabaseManager:
     
     def __init__(self):
         """Initialize database connections."""
-        self.sqlite_conn = None
+        self.sqlite_path = None
         self.neo4j_driver = None
         self.influxdb_client = None
         self.redis_client = None
@@ -26,9 +30,19 @@ class DatabaseManager:
         Args:
             database_path: Path to SQLite database file, falls back to config if not provided
         """
-        path = database_path or settings.DATABASE_URI or "trading_system.db"
-        self.sqlite_conn = sqlite3.connect(path)
-        self.sqlite_conn.row_factory = sqlite3.Row
+        self.sqlite_path = database_path or settings.DATABASE_URI or "trading_system.db"
+        
+    def get_sqlite_connection(self):
+        """
+        Get a thread-local SQLite connection.
+        
+        Returns:
+            Thread-local SQLite connection
+        """
+        if not hasattr(_thread_local, "sqlite_conn"):
+            _thread_local.sqlite_conn = sqlite3.connect(self.sqlite_path)
+            _thread_local.sqlite_conn.row_factory = sqlite3.Row
+        return _thread_local.sqlite_conn
     
     def connect_neo4j(
         self, 
@@ -129,8 +143,10 @@ class DatabaseManager:
     
     def close_all(self) -> None:
         """Close all database connections."""
-        if self.sqlite_conn:
-            self.sqlite_conn.close()
+        # Close thread-local SQLite connection if it exists
+        if hasattr(_thread_local, "sqlite_conn"):
+            _thread_local.sqlite_conn.close()
+            delattr(_thread_local, "sqlite_conn")
         
         if self.neo4j_driver:
             self.neo4j_driver.close()
@@ -143,3 +159,36 @@ class DatabaseManager:
 
 # Singleton instance for database connections
 db_manager = DatabaseManager()
+
+
+def get_db_manager():
+    """
+    Get the database manager instance for dependency injection.
+    
+    Returns:
+        Database manager instance
+    """
+    # Ensure the SQLite path is set
+    if db_manager.sqlite_path is None:
+        db_manager.connect_sqlite()
+    
+    # Try to connect to other databases if not already connected
+    if db_manager.neo4j_driver is None:
+        try:
+            db_manager.connect_neo4j()
+        except Exception:
+            pass
+            
+    if db_manager.influxdb_client is None:
+        try:
+            db_manager.connect_influxdb()
+        except Exception:
+            pass
+    
+    if db_manager.redis_client is None:
+        try:
+            db_manager.connect_redis()
+        except Exception:
+            pass
+            
+    return db_manager

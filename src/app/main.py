@@ -31,18 +31,29 @@ async def health_check():
     }
 
 # Import and include routers
-# from .routers import auth, strategies, knowledge, backtest
-# app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
-# app.include_router(strategies.router, prefix="/api/strategies", tags=["Strategies"])
+from .routers import auth, agents, strategies
+app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(strategies.router, prefix="/api/strategies", tags=["Strategies"])
+app.include_router(agents.router, prefix="/api/agents", tags=["Agents"])
 # app.include_router(knowledge.router, prefix="/api/knowledge", tags=["Knowledge Graph"])
 # app.include_router(backtest.router, prefix="/api/backtest", tags=["Backtesting"])
 
 # Add exception handlers
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
-    return {
-        "status": "error",
-        "code": exc.detail.get("code", "ERROR"),
-        "message": exc.detail.get("message", str(exc.detail)),
-        "details": exc.detail.get("details", {})
-    }
+    if isinstance(exc.detail, dict):
+        # Handle dictionary details (for structured errors)
+        return {
+            "status": "error",
+            "code": exc.detail.get("code", "ERROR"),
+            "message": exc.detail.get("message", str(exc.detail)),
+            "details": exc.detail.get("details", {})
+        }
+    else:
+        # Handle string or other detail types
+        return {
+            "status": "error",
+            "code": "ERROR",
+            "message": str(exc.detail),
+            "details": {}
+        }
