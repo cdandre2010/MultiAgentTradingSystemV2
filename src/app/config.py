@@ -31,7 +31,10 @@ class Settings(BaseSettings):
     
     # Claude API
     ANTHROPIC_API_KEY: Optional[str] = None
-    
+
+    # Alpha Vantage API
+    ALPHA_VANTAGE_API_KEY: Optional[str] = None
+
     # Logging
     LOG_LEVEL: str = "INFO"
 

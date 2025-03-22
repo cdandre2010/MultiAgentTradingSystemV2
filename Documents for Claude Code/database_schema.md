@@ -875,3 +875,181 @@ class RedisRepository:
    - Use explicit transactions for operations that span multiple database operations
    - Implement rollback mechanisms for partial failures
    - Use optimistic locking for concurrent modifications
+
+## Knowledge Graph Integration with Agents
+
+The Neo4j knowledge graph has been fully integrated with the agent system to enable knowledge-driven strategy creation, validation, and visualization.
+
+### Enhanced StrategyRepository
+
+The `StrategyRepository` class has been enhanced with comprehensive methods for querying the knowledge graph:
+
+```python
+class StrategyRepository:
+    """
+    Repository for Neo4j operations supporting knowledge-driven strategy creation.
+    Provides methods for component retrieval, relationship validation,
+    recommendation algorithms, and template generation.
+    """
+    
+    def __init__(self):
+        """Initialize the strategy repository."""
+        self.driver = db_manager.neo4j_driver
+        
+    def get_indicators_for_strategy_type(
+        self,
+        strategy_type: str,
+        min_strength: float = 0.7,
+        limit: int = 10
+    ) -> List[Dict[str, Any]]:
+        """
+        Get indicators commonly used with a specific strategy type.
+        
+        Args:
+            strategy_type: Type of strategy
+            min_strength: Minimum compatibility score
+            limit: Maximum number of results to return
+            
+        Returns:
+            List of indicators with compatibility scores
+        """
+        # Implementation...
+        
+    def get_position_sizing_for_strategy_type(
+        self,
+        strategy_type: str,
+        min_compatibility: float = 0.7,
+        limit: int = 5
+    ) -> List[Dict[str, Any]]:
+        """
+        Get position sizing methods suitable for a specific strategy type.
+        
+        Args:
+            strategy_type: Type of strategy
+            min_compatibility: Minimum compatibility score
+            limit: Maximum number of results to return
+            
+        Returns:
+            List of position sizing methods with compatibility scores
+        """
+        # Implementation...
+        
+    def get_parameters_for_indicator(
+        self,
+        indicator_name: str
+    ) -> List[Dict[str, Any]]:
+        """
+        Get parameters required for a specific indicator.
+        
+        Args:
+            indicator_name: Name of the indicator
+            
+        Returns:
+            List of parameters with default values
+        """
+        # Implementation...
+        
+    def generate_strategy_template(
+        self,
+        strategy_type: str,
+        instrument: str,
+        timeframe: str
+    ) -> Dict[str, Any]:
+        """
+        Generate a strategy template based on the knowledge graph.
+        
+        Args:
+            strategy_type: Type of strategy
+            instrument: Instrument symbol or type
+            timeframe: Timeframe
+            
+        Returns:
+            Strategy template with recommended components
+        """
+        # Implementation...
+```
+
+### Knowledge Integration Module
+
+A `knowledge_integration.py` module provides standardized functions for agents to interact with Neo4j:
+
+```python
+def get_knowledge_recommendations(strategy_repository, strategy_type: str) -> Dict[str, Any]:
+    """
+    Get knowledge-driven recommendations for a strategy type.
+    
+    Args:
+        strategy_repository: Neo4j strategy repository instance
+        strategy_type: Type of trading strategy
+        
+    Returns:
+        Dictionary with recommendations
+    """
+    # Implementation...
+    
+def enhance_validation_feedback(strategy_repository, errors: List[str], strategy_type: str) -> List[str]:
+    """
+    Generate knowledge-driven suggestions based on validation errors.
+    
+    Args:
+        strategy_repository: Neo4j strategy repository instance
+        errors: List of validation errors
+        strategy_type: Strategy type
+        
+    Returns:
+        List of knowledge-driven suggestions
+    """
+    # Implementation...
+    
+def enhance_strategy_with_knowledge(strategy_repository, strategy_params: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Enhance a strategy with knowledge-driven recommendations.
+    
+    Args:
+        strategy_repository: Neo4j strategy repository instance
+        strategy_params: Basic strategy parameters
+        
+    Returns:
+        Enhanced strategy parameters
+    """
+    # Implementation...
+```
+
+### Agent Usage
+
+The agents use the knowledge graph to provide better recommendations and validations:
+
+1. **ConversationalAgent**:
+   - Enhanced parameter extraction with knowledge-driven recommendations
+   - Improved conversations with Neo4j-based suggestions
+   - Better template recommendations using compatibility data
+   - Enhanced explanations using relationship metadata
+
+2. **ValidationAgent**:
+   - Parameter validation using Neo4j recommended ranges
+   - Component compatibility checking with relationship data
+   - Knowledge-driven suggestions for issues
+   - Better error messages with explanation from relationship metadata
+
+This integration enables a truly knowledge-driven approach to strategy creation, where the system can recommend appropriate components based on compatibility and provide meaningful explanations about why certain components work well together.
+
+### Knowledge Graph Visualization
+
+A visualization module has been implemented to provide graphical representations of the knowledge graph:
+
+1. **Component Relationship Diagrams**:
+   - Visual representation of how strategy components relate to each other
+   - Displays relationship types and strength scores
+   - Helps users understand component dependencies and connections
+
+2. **Compatibility Matrices**:
+   - Heatmap visualization of compatibility scores between components
+   - Helps identify highly compatible component combinations
+   - Supports better strategy design decisions
+
+3. **Strategy Template Visualizations**:
+   - Hierarchical representation of complete strategy templates
+   - Shows all components and their parameter configurations
+   - Enables easy understanding of complex strategy structures
+
+The visualization tools enhance user understanding by providing intuitive graphical representations of the knowledge relationships, making it easier to create effective trading strategies.

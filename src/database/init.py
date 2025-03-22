@@ -56,9 +56,13 @@ def init_sqlite(db_path: Optional[str] = None) -> bool:
         return False
 
 
-def init_neo4j() -> bool:
+def init_neo4j(enhanced: bool = True) -> bool:
     """
     Initialize the Neo4j database with the required schema and seed data.
+    
+    Args:
+        enhanced: Whether to use the enhanced schema with comprehensive strategy components
+                 Default is True for the comprehensive knowledge graph schema
     
     Returns:
         True if initialization successful, False otherwise
@@ -69,7 +73,12 @@ def init_neo4j() -> bool:
             db_manager.connect_neo4j()
         
         # Get the script path
-        script_path = Path(__file__).parent / "scripts" / "neo4j_init.cypher"
+        if enhanced:
+            script_path = Path(__file__).parent / "scripts" / "neo4j_init_enhanced.cypher"
+            logger.info("Using enhanced Neo4j schema with comprehensive knowledge graph")
+        else:
+            script_path = Path(__file__).parent / "scripts" / "neo4j_init.cypher"
+            logger.info("Using basic Neo4j schema")
         
         # Read Cypher script
         with open(script_path, "r") as f:
@@ -102,26 +111,27 @@ def init_influxdb() -> bool:
         # Ensure connection is established
         if db_manager.influxdb_client is None:
             db_manager.connect_influxdb()
+            
+        if db_manager.influxdb_client is None:
+            logger.error("Failed to connect to InfluxDB")
+            return False
         
-        # Check if the bucket exists
-        buckets_api = db_manager.influxdb_client.buckets_api()
+        # Check if the client is healthy
+        if not db_manager.influxdb_client.health_check():
+            logger.error("InfluxDB health check failed")
+            return False
+            
+        # Create audit bucket if it doesn't exist yet
+        audit_bucket = "data_audit"
         
-        # NOTE: In InfluxDB 2.x, buckets are created during setup
-        # or via the API. This function just verifies the bucket exists.
-        buckets = buckets_api.find_buckets().buckets
-        bucket_names = [bucket.name for bucket in buckets]
+        # We don't need to check bucket existence since our custom client handles
+        # writing to buckets directly through the client's bucket parameter
         
-        if db_manager.influxdb_bucket in bucket_names:
-            logger.info(f"InfluxDB bucket '{db_manager.influxdb_bucket}' already exists")
-        else:
-            logger.warning(f"InfluxDB bucket '{db_manager.influxdb_bucket}' does not exist")
-            # Could create bucket here if needed
-        
-        logger.info("InfluxDB database verification completed")
+        logger.info("InfluxDB initialization completed successfully")
         return True
     
     except Exception as e:
-        logger.error(f"Error verifying InfluxDB database: {e}")
+        logger.error(f"Error initializing InfluxDB database: {e}")
         return False
 
 

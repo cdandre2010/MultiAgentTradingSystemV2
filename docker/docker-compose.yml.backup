@@ -7,7 +7,7 @@ services:
     container_name: mats_neo4j
     ports:
       - "7474:7474"  # HTTP
-      - "7689:7687"  # Bolt - mapped to 7689 to match Neo4j Desktop
+      - "7687:7687"  # Bolt
     volumes:
       - neo4j_data:/data
       - neo4j_logs:/logs
@@ -15,7 +15,6 @@ services:
       - neo4j_plugins:/plugins
     environment:
       - NEO4J_AUTH=neo4j/SchoolsOut2025  # Change this in production!
-      - NEO4J_ACCEPT_LICENSE_AGREEMENT=yes  # Add this line
       - NEO4J_dbms_memory_heap_initial__size=512M
       - NEO4J_dbms_memory_heap_max__size=2G
     networks:

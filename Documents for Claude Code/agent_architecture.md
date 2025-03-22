@@ -133,11 +133,13 @@ class MasterAgent:
 **Implementation**:
 - **Pattern**: Sequential Chain with Memory
 - **LLM Integration**: Uses Claude 3.7 Sonnet with specialized prompts
+- **Neo4j Integration**: Uses strategy repository for knowledge-driven recommendations
 - **Responsibilities**:
   - Extract strategy components from natural language
-  - Guide users through strategy creation steps
-  - Provide explanations and suggestions
-  - Handle non-linear conversation flows
+  - Guide users through strategy creation steps with knowledge-driven recommendations
+  - Provide explanations using relationship metadata from Neo4j
+  - Enhance strategies with compatible components from knowledge graph
+  - Handle non-linear conversation flows with context-aware recommendations
 
 **Prompt Templates**:
 ```
@@ -215,12 +217,13 @@ class ConversationalAgent:
 
 **Implementation**:
 - **Pattern**: ReAct Agent with Structured Output
-- **Tools Integration**: Neo4j query tools, parameter validators
+- **Tools Integration**: Neo4j query tools, parameter validators, knowledge graph integration
 - **Responsibilities**:
-  - Validate parameter ranges and types
-  - Check compatibility between components
-  - Verify strategy completeness
-  - Generate human-readable explanations
+  - Validate parameter ranges and types using knowledge graph data
+  - Check compatibility between components with Neo4j relationship queries
+  - Verify strategy completeness against templates from knowledge graph
+  - Generate human-readable explanations with relationship metadata
+  - Provide knowledge-driven suggestions for improvement
 
 **Tools Definitions**:
 ```python

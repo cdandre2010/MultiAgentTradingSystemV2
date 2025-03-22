@@ -6,10 +6,12 @@ This directory contains Docker configurations for running the databases and serv
 
 ### Neo4j
 - **Purpose**: Graph database for storing strategy components and relationships
-- **Port**: 7474 (HTTP), 7687 (Bolt)
+- **Port**: 7474 (HTTP), 7689 (Bolt - modified to match Neo4j Desktop)
 - **Username**: neo4j
-- **Password**: password (change in production!)
+- **Password**: SchoolsOut2025
 - **Web Interface**: http://localhost:7474
+- **Note**: Port 7689 is used to maintain compatibility with Neo4j Desktop
+- **Important**: Password is set through NEO4J_AUTH environment variable and must be configured before first initialization
 
 ### InfluxDB
 - **Purpose**: Time series database for market data
@@ -64,9 +66,18 @@ docker-compose down -v
 After starting the services for the first time:
 
 ### Neo4j
-1. Visit http://localhost:7474
-2. Connect using the credentials above
-3. Run the initialization scripts in `/src/database/scripts/neo4j_init.cypher`
+1. Wait for Neo4j to fully initialize (30-60 seconds after `docker-compose up -d`)
+2. Visit http://localhost:7474
+3. Connect using the credentials above (neo4j/SchoolsOut2025)
+4. Alternatively, initialize using the Python script:
+   ```bash
+   # From project root
+   python scripts/init_neo4j.py  # Initialize with enhanced knowledge graph schema
+   ```
+5. To clear the database before reinitializing:
+   ```bash
+   python clear_neo4j.py
+   ```
 
 ### InfluxDB
 1. Visit http://localhost:8086

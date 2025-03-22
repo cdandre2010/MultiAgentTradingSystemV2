@@ -9,7 +9,7 @@ setup(
         "fastapi>=0.88.0",
         "uvicorn>=0.15.0",
         "langchain>=0.0.267",
-	"langchain-anthropic>=0.1.23",
+        "langchain-anthropic>=0.1.23",
         "anthropic>=0.5.0",
         "neo4j>=4.4.0",
         "influxdb-client>=1.26.0",
@@ -22,7 +22,11 @@ setup(
         "pandas>=1.3.5",
         "numpy>=1.21.0",
         "redis>=4.3.0",
-	"bcrypt>=4.3.0"
+        "bcrypt>=4.3.0",
+        # Data source connectors
+        "aiohttp>=3.8.0",
+        "yfinance>=0.2.0",
+        "python-binance>=1.0.0",
     ],
     extras_require={
         "dev": [

@@ -4,9 +4,14 @@ This agent validates strategy parameters and configurations.
 """
 from typing import Dict, Any, List, Optional
 import json
+import logging
 
 from .base import Agent
 from ..utils.llm import get_llm
+from ..database.strategy_repository import get_strategy_repository
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 
 class ValidationAgent(Agent):
@@ -20,6 +25,14 @@ class ValidationAgent(Agent):
         super().__init__(name="validation_agent")
         self.llm = get_llm()
         self.validation_rules = self._load_validation_rules()
+        # Initialize Neo4j repository for knowledge-driven validation
+        try:
+            self.strategy_repository = get_strategy_repository()
+        except Exception as e:
+            logger.error(f"Error initializing Neo4j repository: {e}")
+            self.strategy_repository = None
+        # Initialize Neo4j repository for knowledge-driven validation
+        self.strategy_repository = get_strategy_repository()
     
     def process(self, message: Dict[str, Any], state: Dict[str, Any]) -> Dict[str, Any]:
         """

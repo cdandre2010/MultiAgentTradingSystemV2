@@ -2,9 +2,12 @@ from typing import Dict, Any, Optional
 import sqlite3
 import threading
 from neo4j import GraphDatabase
-from influxdb_client import InfluxDBClient
 import redis
+import logging
 from ..app.config import settings
+from .influxdb import InfluxDBClient
+
+logger = logging.getLogger(__name__)
 
 # Thread-local storage for SQLite connections
 _thread_local = threading.local()
@@ -84,10 +87,20 @@ class DatabaseManager:
         url = url or settings.INFLUXDB_URL
         token = token or settings.INFLUXDB_TOKEN
         org = org or settings.INFLUXDB_ORG
+        self.influxdb_bucket = bucket or settings.INFLUXDB_BUCKET or "market_data"
         
         if url and token:
-            self.influxdb_client = InfluxDBClient(url=url, token=token, org=org)
-            self.influxdb_bucket = bucket or settings.INFLUXDB_BUCKET
+            try:
+                self.influxdb_client = InfluxDBClient(
+                    url=url, 
+                    token=token, 
+                    org=org, 
+                    bucket=self.influxdb_bucket
+                )
+                logger.info(f"Connected to InfluxDB at {url}")
+            except Exception as e:
+                logger.error(f"Failed to connect to InfluxDB: {e}")
+                self.influxdb_client = None
     
     def connect_redis(self, url: Optional[str] = None) -> None:
         """
