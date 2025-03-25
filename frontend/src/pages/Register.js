@@ -68,6 +68,9 @@ function Register() {
   return (
     <div className="auth-container">
       <div className="auth-card">
+        <div className="auth-logo">
+          <img src="/logo192.png" alt="MATS Logo" width="64" height="64" />
+        </div>
         <h2>Register</h2>
         
         {error && <div className="alert alert-danger">{error}</div>}
