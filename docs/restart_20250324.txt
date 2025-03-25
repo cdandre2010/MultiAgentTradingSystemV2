@@ -1,0 +1,12 @@
+"Please continue implementing the Data/Feature Agent for the Multi-Agent Trading System. Start by reading NEXT_STEPS.md which outlines the implementation plan using Test-Driven Development. Then review CLAUDE.md, testing_guide.md, and github_project_issues.md for additional context before beginning implementation."
+
+.\venv_win\Scripts\activate  
+
+cd /mnt/d/MultiAgentTradingSystemV2/docker
+docker-compose down -v
+docker-compose up -d
+docker ps
+docker logs mats_neo4j
+
+
+sudo usermod -aG docker cdandre2010

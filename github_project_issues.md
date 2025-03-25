@@ -321,20 +321,22 @@ Update the ConversationalAgent to leverage Neo4j knowledge graph for strategy co
 **Description:**  
 Enhance the ConversationalAgent to handle data requirements dialog with users, ensuring strategies have complete data configurations.
 
-**Implementation Steps:**
-1. Create conversation flows to gather data requirements
-2. Implement data availability checking integration
-3. Add prompts to suggest data sources based on instrument and frequency
-4. Create system to validate data configuration completeness
-5. Add explanations of data quality trade-offs
-6. Implement lookback period recommendations based on indicators
-7. Create data preprocessing suggestions based on strategy type
-8. Add integration with InfluxDB to check existing data availability
-9. Create tests for data requirements conversation flows
+**Note:** This issue has been superseded by Issue 3.2.1 (ConversationalAgent Integration with Data/Feature Agent) which builds on the completed Data/Feature Agent implementation. Work for data requirements dialog should be pursued under Issue 3.2.1 instead.
 
-**Priority:** Medium
-**Status:** To Do
-**Dependencies:** Requires Issue 2.4.1 (Strategy Data Configuration Enhancement)
+**Implementation Steps:**
+1. ~~Create conversation flows to gather data requirements~~ (Now part of Issue 3.2.1)
+2. ~~Implement data availability checking integration~~ (Now part of Issue 3.2.1)
+3. ~~Add prompts to suggest data sources based on instrument and frequency~~ (Now part of Issue 3.2.1)
+4. ~~Create system to validate data configuration completeness~~ (Now part of Issue 3.2.1)
+5. ~~Add explanations of data quality trade-offs~~ (Now part of Issue 3.2.1)
+6. ~~Implement lookback period recommendations based on indicators~~ (Now part of Issue 3.2.1)
+7. ~~Create data preprocessing suggestions based on strategy type~~ (Now part of Issue 3.2.1)
+8. ~~Add integration with InfluxDB to check existing data availability~~ (Now part of Issue 3.2.1)
+9. ~~Create tests for data requirements conversation flows~~ (Now part of Issue 3.2.1)
+
+**Priority:** Low (Superseded)
+**Status:** Superseded by Issue 3.2.1
+**Dependencies:** ~~Requires Issue 2.4.1 (Strategy Data Configuration Enhancement)~~
 
 ### Issue 2.8: Knowledge-Based ValidationAgent
 **Description:**  
@@ -357,6 +359,8 @@ Enhance the ValidationAgent with knowledge-graph validation capabilities.
 **Description:**  
 Add data configuration validation capabilities to the ValidationAgent to ensure strategies have valid and complete data requirements.
 
+**Note:** This issue will complement Issue 3.2.1 (ConversationalAgent Integration with Data/Feature Agent) by providing backend validation for the data aspects that will be discussed through the conversational interface.
+
 **Implementation Steps:**
 1. Create validation rules for data configuration completeness
 2. Implement data availability checking integration
@@ -371,19 +375,25 @@ Add data configuration validation capabilities to the ValidationAgent to ensure 
 **Priority:** Medium
 **Status:** To Do
 **Dependencies:** Requires Issue 2.4.1 (Strategy Data Configuration Enhancement)
+**Related Issues:** Issue 3.2.1 (ConversationalAgent Integration with Data/Feature Agent)
 
 ### Issue 2.9: Strategy Creation Frontend
 **Description:**  
 Create the frontend interface for strategy creation with real-time validation.
 
+**Note:** The data visualization aspects (step 4) will be implemented as part of Issue 3.2.2 (Frontend Visualization Components for Data/Feature Agent).
+
 **Implementation Steps:**
 1. Create conversation UI with chat interface
 2. Implement component selection forms
 3. Add real-time validation feedback
-4. Create strategy visualization components
-5. Implement navigation for previous steps
+4. Implement navigation for previous steps
+5. Create strategy management dashboard
+6. Add strategy template selection interface
 
+**Priority:** Medium
 **Status:** To Do
+**Related Issues:** Issue 3.2.2 (Frontend Visualization Components)
 
 ## Milestone 3: Data Handling and Backtesting
 
@@ -467,46 +477,173 @@ Create a system to detect data discrepancies, corporate actions, and adjustments
 7. Implement visualization of adjustment impacts
 8. Create reporting for data quality metrics
 
+**Changes Made:**
+1. Created comprehensive DataIntegrityService with:
+   - Anomaly detection algorithms for price and volume outliers
+   - Sophisticated corporate action detection (splits, dividends, mergers)
+   - Data reconciliation with external sources
+   - Adjustment creation and management system
+   - Comprehensive data quality verification with scoring metrics
+2. Implemented API endpoints for data integrity features:
+   - Added /data/anomalies for detecting data anomalies
+   - Created /data/reconcile for reconciling with external sources
+   - Implemented /data/corporate-actions for detecting market events
+   - Added /data/adjustments (POST) for creating data adjustments
+   - Added /data/adjustments (GET) for listing existing adjustments
+   - Created /data/quality for verifying data quality metrics
+3. Enhanced existing data models with integrity-related fields
+4. Added comprehensive unit tests for all integrity functionality
+5. Updated documentation to reflect new capabilities
+
 **Priority:** Medium
-**Status:** To Do
+**Status:** Completed
 **Dependencies:** Requires Issue 3.1 (core InfluxDB implementation)
 
-### Issue 3.1.3: Indicator Calculation Service
+### Issue 3.1.3: Indicator Calculation Service with TA-Lib
 **Description:**  
-Implement an on-demand technical indicator calculation service to support strategy evaluation and backtesting.
+Implement an on-demand technical indicator calculation service using TA-Lib to support strategy evaluation and backtesting.
 
-**Implementation Steps:**
-1. Create core indicator calculation functions
-2. Implement parameter flexibility for different strategy needs
-3. Add optimization for calculation efficiency
-4. Create in-memory caching system for performance
-5. Implement batch calculation capabilities
-6. Add extensive testing with known values
-7. Create visualization support for indicators
-8. Implement custom indicator definition capabilities
+**Implementation Steps Completed:**
+1. Installed TA-Lib dependencies (C/C++ library and Python wrapper)
+2. Created indicator service wrapper around TA-Lib
+3. Implemented flexible parameter system matching existing schema
+4. Added caching system for improved performance
+5. Created batch calculation capabilities for multiple indicators
+6. Ensured compatibility with knowledge graph components
+7. Implemented comprehensive testing against known values
+8. Added demonstration script for showing indicator functionality
+9. Created detailed documentation including installation guide
+10. Maintained same interface for backward compatibility
+
+**Technical Implementation Details:**
+1. Replaced custom indicator calculations with TA-Lib equivalents
+2. Enhanced parameter validation to support multiple types (int, float)
+3. Fixed Series hashability issues that affected original implementation
+4. Maintained existing caching system for performance optimization
+5. Added support for all major indicator types:
+   - Trend indicators (SMA, EMA, WMA, DEMA, TEMA, ADX, etc.)
+   - Momentum indicators (RSI, MACD, Stochastic, MFI, etc.)
+   - Volatility indicators (Bollinger Bands, ATR, Keltner Channels)
+   - Volume indicators (OBV, VWAP, CMF)
+   - Pattern indicators (Engulfing, Doji)
+6. Added custom implementation for indicators not available in TA-Lib
+7. Created comprehensive test suite covering all indicators
+8. Added detailed error handling with informative messages
+
+**Benefits:**
+1. Leverages battle-tested industry standard library for reliability
+2. Reduces long-term maintenance burden
+3. Improves performance through optimized C/C++ implementations
+4. Provides access to 150+ technical indicators without custom development
+5. Ensures calculation accuracy with well-tested implementations
 
 **Priority:** High
-**Status:** To Do
+**Status:** Completed
 **Dependencies:** Requires Issue 3.1 (core InfluxDB implementation)
+
+**Next Steps:**
+1. Integrate with Data/Feature Agent (Issue 3.2)
+2. Add visualization components for indicators in frontend
+3. Create more comprehensive demonstration tools
 
 ### Issue 3.2: Data and Feature Agent with Strategy Integration
 **Description:**  
-Implement the Data/Feature Agent for market data processing, indicator calculation and strategy data requirements handling.
+Implement the Data/Feature Agent for market data processing, indicator calculation and strategy data requirements handling following Test-Driven Development methodology.
 
 **Implementation Steps:**
-1. Implement technical indicator library
-2. Create parallel processing manager
-3. Design data requirements parser for strategies
-4. Implement feature matrix generation
-5. Create visualization data formatters
-6. Add integration with ConversationalAgent for data requirements
-7. Implement strategy-specific data preparation
-8. Create data quality verification for strategies
-9. Add system to track data usage across strategies
+1. ~~Create tests for supporting services~~
+   - ~~Write tests for data_availability.py service functionality~~
+   - ~~Write tests for data_retrieval.py service functionality~~
+   - ~~Test the integration between data services~~
+2. ~~Develop comprehensive Data/Feature Agent test suite~~
+   - ~~Test agent message handling protocol~~
+   - ~~Test indicator calculation integration~~
+   - ~~Test data validation functionality~~
+   - ~~Test feature generation capabilities~~
+   - ~~Test visualization output format~~
+3. ~~Implement technical indicator library integration~~
+4. ~~Create parallel processing manager~~
+5. ~~Design data requirements parser for strategies~~
+6. ~~Implement feature matrix generation~~
+7. ~~Create visualization data formatters~~
+8. ~~Implement strategy-specific data preparation~~
+9. ~~Create data quality verification for strategies~~
+10. ~~Add system to track data usage across strategies~~
+11. ~~Develop integration tests for the complete agent workflow~~
+12. ~~Implement proper async/sync handling for service methods~~
+13. ~~Create test script for basic verification~~
+14. ~~Update MasterAgent to include the new agent~~
+15. ~~Implement message routing based on content keywords~~
 
 **Priority:** High
+**Status:** Completed ✅
+**Dependencies:** Requires Issue 2.5 (Neo4j Knowledge Graph Enhancement), Issue 2.6 (Strategy Repository Implementation), Issue 2.4.1 (Strategy Data Configuration Enhancement), and Issue 3.1.3 (Indicator Calculation Service)
+
+**Next Steps:**
+1. ~~Enhance ConversationalAgent integration (Issue 3.2.1)~~ - Completed
+2. Develop frontend visualization components (Issue 3.2.2)
+
+### Issue 3.2.1: ConversationalAgent Integration with Data/Feature Agent
+**Description:**  
+Enhance the ConversationalAgent to communicate with the DataFeatureAgent for data requirements dialog and visualization requests, providing users with natural language interactions for data analysis and technical indicators.
+
+**Implementation Steps:**
+1. ~~Update ConversationalAgent to route data-related queries to DataFeatureAgent~~
+2. ~~Create conversation flow templates for data requirements dialog~~
+3. ~~Implement message construction for indicator calculation requests~~
+4. ~~Add natural language explanation of technical indicators~~
+5. ~~Create visualization request generation for strategy components~~
+6. ~~Implement data availability checking dialog flow~~
+7. ~~Add timeframe selection guidance with natural language~~
+8. ~~Create comprehensive unit tests for agent communication~~
+9. ~~Implement user-friendly explanations of data quality results~~
+10. ~~Update MasterAgent routing to handle conversational data requests~~
+11. ~~Add error handling for visualization requests~~
+12. ~~Create documentation for the enhanced agent integration~~
+
+**Changes Made:**
+1. Created `create_data_feature_request` method for formatting messages to DataFeatureAgent
+2. Implemented `format_data_response` for converting technical data to user-friendly messages
+3. Added specialized handlers for different data-related tasks:
+   - `handle_data_visualization_request` for chart requests
+   - `handle_data_availability_request` for checking data availability
+   - `handle_indicator_explanation_request` for technical explanations
+4. Enhanced `_handle_user_request` to detect data-related queries using keyword matching
+5. Added pattern recognition for different types of data requests
+6. Implemented LLM-powered parameter extraction from natural language 
+7. Created robust JSON extraction with code block handling
+8. Added detailed error handling for data requests
+9. Implemented real LLM API integration with call tracking
+10. Created comprehensive test suite:
+    - Unit tests for individual methods
+    - Integration tests with real LLM API calls
+11. Updated project documentation to reflect new capabilities
+
+**Priority:** High
+**Status:** Completed ✅
+**Dependencies:** Requires Issue 3.2 (Data/Feature Agent Implementation)
+
+### Issue 3.2.2: Frontend Visualization Components for Data/Feature Agent
+**Description:**  
+Create frontend visualization components and API endpoints to leverage the capabilities of the DataFeatureAgent for interactive data exploration and indicator visualization.
+
+**Implementation Steps:**
+1. Create REST API endpoints for data visualization requests
+2. Implement interactive chart components with visualization libraries
+3. Add indicator parameter controls for real-time updates
+4. Create data timeframe selection interface
+5. Implement comparison view for multiple indicators
+6. Add data source selection dropdown with availability indicators
+7. Create data quality visualization component
+8. Implement indicator explanation tooltips
+9. Add export functionality for visualizations
+10. Create comprehensive documentation for visualization components
+11. Implement responsive design for all visualization components
+12. Add tests for API endpoints and visualization data formatting
+
+**Priority:** Medium
 **Status:** To Do
-**Dependencies:** Requires Issue 2.5 (Neo4j Knowledge Graph Enhancement), Issue 2.6 (Strategy Repository Implementation), and Issue 2.4.1 (Strategy Data Configuration Enhancement)
+**Dependencies:** Requires Issue 3.2 (Data/Feature Agent Implementation) and Issue 3.2.1 (ConversationalAgent Integration)
 
 ### Issue 3.3: Backtesting Engine with Data Configuration Integration
 **Description:**  
