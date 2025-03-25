@@ -13,6 +13,7 @@ from ...models.market_data import MarketDataRequest, OHLCV
 from ...services.data_availability import DataAvailabilityService
 from ...services.data_retrieval import DataRetrievalService
 from ...services.data_versioning import DataVersioningService
+from ...services.data_integrity import DataIntegrityService
 from ...services.indicators import IndicatorService
 from ...database.influxdb import InfluxDBClient
 
@@ -174,16 +175,110 @@ async def calculate_indicators(
     indicators: List[Dict[str, Any]],
     db=Depends(get_db_manager)
 ):
-    """Calculate indicators for OHLCV data."""
+    """
+    Calculate indicators for provided OHLCV data.
+    
+    Takes raw OHLCV data and a list of indicator configurations to calculate.
+    Returns indicators without requiring data to be stored in the database.
+    """
     
     # Create indicator service
-    indicator_service = IndicatorService()
+    indicator_service = IndicatorService(
+        cache_enabled=True,
+        optimize=True,
+        validate_params=True
+    )
     
     # Calculate indicators
     result = indicator_service.calculate_multiple_indicators(
         ohlcv_data=ohlcv_data,
         indicators_config=indicators
     )
+    
+    return result
+
+
+@router.get("/indicators/available")
+async def get_available_indicators():
+    """
+    Get a list of all available indicators with metadata.
+    
+    Returns information about all indicators, organized by category, with 
+    descriptions and default parameters.
+    """
+    
+    # Create indicator service
+    indicator_service = IndicatorService()
+    
+    # Get available indicators
+    result = indicator_service.get_available_indicators()
+    
+    return result
+
+
+@router.post("/indicators/historical")
+async def calculate_historical_indicators(
+    instrument: str,
+    timeframe: str,
+    start_date: str,
+    end_date: str,
+    indicators: List[Dict[str, Any]],
+    version: str = "latest",
+    db=Depends(get_db_manager)
+):
+    """
+    Calculate indicators for historical data retrieved from the database.
+    
+    Retrieves OHLCV data from the database and calculates the specified indicators.
+    More efficient than separately retrieving data and calculating indicators.
+    """
+    
+    if db.influxdb_client is None:
+        raise HTTPException(status_code=503, detail="InfluxDB client not available")
+    
+    # Retrieve historical data
+    data_retrieval = DataRetrievalService(influxdb_client=db.influxdb_client)
+    
+    # Create a request
+    request = MarketDataRequest(
+        instrument=instrument,
+        timeframe=timeframe,
+        start_date=start_date,
+        end_date=end_date,
+        version=version
+    )
+    
+    # Retrieve OHLCV data
+    ohlcv_data = await data_retrieval.get_ohlcv_data(request)
+    
+    if not ohlcv_data or len(ohlcv_data.data) == 0:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No data found for {instrument}/{timeframe} from {start_date} to {end_date}"
+        )
+    
+    # Create indicator service
+    indicator_service = IndicatorService(
+        cache_enabled=True,
+        optimize=True,
+        validate_params=True
+    )
+    
+    # Calculate indicators
+    result = indicator_service.calculate_multiple_indicators(
+        ohlcv_data=ohlcv_data,
+        indicators_config=indicators
+    )
+    
+    # Add data source information
+    result["data_source"] = {
+        "instrument": instrument,
+        "timeframe": timeframe,
+        "start_date": start_date,
+        "end_date": end_date,
+        "version": version,
+        "data_points": len(ohlcv_data.data) if ohlcv_data else 0
+    }
     
     return result
 
@@ -332,3 +427,251 @@ async def apply_retention_policy(
         )
     
     return result
+
+
+@router.get("/anomalies")
+async def detect_data_anomalies(
+    instrument: str,
+    timeframe: str,
+    start_date: str,
+    end_date: str,
+    version: str = "latest",
+    db=Depends(get_db_manager)
+):
+    """
+    Detect anomalies in market data for a specific period.
+    
+    Identifies various types of data anomalies including price outliers, volume spikes,
+    price gaps, and potential corporate actions. Returns detailed analysis with
+    confidence scores.
+    """
+    
+    if db.influxdb_client is None:
+        raise HTTPException(status_code=503, detail="InfluxDB client not available")
+    
+    # Create integrity service
+    integrity_service = DataIntegrityService(influxdb_client=db.influxdb_client)
+    
+    # Detect anomalies
+    anomalies = await integrity_service.detect_anomalies(
+        instrument=instrument,
+        timeframe=timeframe,
+        start_date=start_date,
+        end_date=end_date,
+        version=version
+    )
+    
+    if "error" in anomalies:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to detect anomalies: {anomalies['error']}"
+        )
+    
+    return anomalies
+
+
+@router.get("/reconcile")
+async def reconcile_data_with_source(
+    instrument: str,
+    timeframe: str,
+    source: str,
+    start_date: str,
+    end_date: str,
+    create_adjustment: bool = False,
+    db=Depends(get_db_manager)
+):
+    """
+    Reconcile cached data with an external source to detect discrepancies.
+    
+    Compares local market data with an external data source (like Binance, YFinance)
+    to identify differences. Can optionally create automatic adjustments for
+    significant discrepancies.
+    """
+    
+    if db.influxdb_client is None:
+        raise HTTPException(status_code=503, detail="InfluxDB client not available")
+    
+    # Create integrity service
+    integrity_service = DataIntegrityService(influxdb_client=db.influxdb_client)
+    
+    # Reconcile with source
+    reconciliation = await integrity_service.reconcile_with_source(
+        instrument=instrument,
+        timeframe=timeframe,
+        source=source,
+        start_date=start_date,
+        end_date=end_date,
+        create_adjustment=create_adjustment
+    )
+    
+    if reconciliation.get("status") == "failed" or reconciliation.get("status") == "error":
+        raise HTTPException(
+            status_code=500,
+            detail=f"Reconciliation failed: {reconciliation.get('reason', reconciliation.get('error', 'Unknown error'))}"
+        )
+    
+    return reconciliation
+
+
+@router.get("/corporate-actions")
+async def detect_corporate_actions(
+    instrument: str,
+    timeframe: str,
+    start_date: str,
+    end_date: str,
+    version: str = "latest",
+    db=Depends(get_db_manager)
+):
+    """
+    Detect potential corporate actions like splits, dividends, and mergers.
+    
+    Uses specialized algorithms to identify patterns in price and volume data
+    that suggest corporate actions. Returns detailed results with confidence scores.
+    """
+    
+    if db.influxdb_client is None:
+        raise HTTPException(status_code=503, detail="InfluxDB client not available")
+    
+    # Create integrity service
+    integrity_service = DataIntegrityService(influxdb_client=db.influxdb_client)
+    
+    # Detect corporate actions
+    actions = await integrity_service.detect_corporate_actions(
+        instrument=instrument,
+        timeframe=timeframe,
+        start_date=start_date,
+        end_date=end_date,
+        version=version
+    )
+    
+    if "error" in actions:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to detect corporate actions: {actions['error']}"
+        )
+    
+    return actions
+
+
+@router.post("/adjustments")
+async def create_data_adjustment(
+    instrument: str,
+    timeframe: str,
+    adjustment_type: str,
+    adjustment_factor: float,
+    reference_date: str,
+    description: Optional[str] = None,
+    affected_fields: Optional[List[str]] = None,
+    source: Optional[str] = None,
+    user_id: str = "system",
+    db=Depends(get_db_manager)
+):
+    """
+    Create a market data adjustment and apply it to create a new version.
+    
+    Implements adjustments for corporate actions and other data corrections,
+    creating a new version of the data with the adjustment applied.
+    """
+    
+    if db.influxdb_client is None:
+        raise HTTPException(status_code=503, detail="InfluxDB client not available")
+    
+    # Create integrity service
+    integrity_service = DataIntegrityService(influxdb_client=db.influxdb_client)
+    
+    # Create adjustment
+    adjustment = await integrity_service.create_adjustment(
+        instrument=instrument,
+        timeframe=timeframe,
+        adjustment_type=adjustment_type,
+        adjustment_factor=adjustment_factor,
+        reference_date=reference_date,
+        description=description,
+        affected_fields=affected_fields,
+        source=source,
+        user_id=user_id
+    )
+    
+    if adjustment.get("status") == "error" or adjustment.get("status") == "failed":
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create adjustment: {adjustment.get('error', adjustment.get('reason', 'Unknown error'))}"
+        )
+    
+    return adjustment
+
+
+@router.get("/adjustments")
+async def list_data_adjustments(
+    instrument: Optional[str] = None,
+    timeframe: Optional[str] = None,
+    adjustment_type: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    db=Depends(get_db_manager)
+):
+    """
+    List all data adjustments with filtering options.
+    
+    Retrieves historical record of data adjustments with various filtering options.
+    """
+    
+    if db.influxdb_client is None:
+        raise HTTPException(status_code=503, detail="InfluxDB client not available")
+    
+    # Create integrity service
+    integrity_service = DataIntegrityService(influxdb_client=db.influxdb_client)
+    
+    # List adjustments
+    adjustments = await integrity_service.list_adjustments(
+        instrument=instrument,
+        timeframe=timeframe,
+        adjustment_type=adjustment_type,
+        start_date=start_date,
+        end_date=end_date
+    )
+    
+    return {
+        "adjustments": adjustments,
+        "total": len(adjustments)
+    }
+
+
+@router.get("/quality")
+async def verify_data_quality(
+    instrument: str,
+    timeframe: str,
+    start_date: str,
+    end_date: str,
+    version: str = "latest",
+    db=Depends(get_db_manager)
+):
+    """
+    Perform a comprehensive data quality assessment.
+    
+    Evaluates various quality metrics including completeness, integrity, consistency,
+    and timestamp accuracy. Returns a detailed quality report with an overall score.
+    """
+    
+    if db.influxdb_client is None:
+        raise HTTPException(status_code=503, detail="InfluxDB client not available")
+    
+    # Create integrity service
+    integrity_service = DataIntegrityService(influxdb_client=db.influxdb_client)
+    
+    # Verify data quality
+    quality = await integrity_service.verify_data_quality(
+        instrument=instrument,
+        timeframe=timeframe,
+        start_date=start_date,
+        end_date=end_date,
+        version=version
+    )
+    
+    if quality.get("status") == "error" or quality.get("status") == "failed":
+        raise HTTPException(
+            status_code=500,
+            detail=f"Quality verification failed: {quality.get('error', quality.get('reason', 'Unknown error'))}"
+        )
+    
+    return quality

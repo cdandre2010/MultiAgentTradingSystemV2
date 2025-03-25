@@ -11,10 +11,13 @@ import json
 import matplotlib.pyplot as plt
 import networkx as nx
 import pandas as pd
+import numpy as np
 import logging
 from typing import Dict, List, Any, Optional, Tuple
 import io
 import base64
+from datetime import datetime
+from ..models.market_data import OHLCV
 
 logger = logging.getLogger(__name__)
 
@@ -754,6 +757,349 @@ def create_strategy_template_visualization(
         strategy_type, instrument, timeframe
     )
     return img_data
+
+def generate_indicator_visualization(
+    ohlcv_data: OHLCV, 
+    indicators_data: Optional[Dict[str, Any]] = None,
+    visualization_type: str = "chart"
+) -> Dict[str, Any]:
+    """
+    Generate visualizations for OHLCV data with indicators.
+    
+    Args:
+        ohlcv_data: OHLCV data
+        indicators_data: Calculated indicators
+        visualization_type: Type of visualization ("chart", "candlestick", "multi_panel")
+        
+    Returns:
+        Dictionary with visualization data and metadata
+    """
+    try:
+        # Convert OHLCV data to DataFrame
+        df = pd.DataFrame([
+            {
+                "timestamp": p.timestamp,
+                "open": p.open,
+                "high": p.high,
+                "low": p.low,
+                "close": p.close,
+                "volume": p.volume
+            }
+            for p in ohlcv_data.data
+        ])
+        df.set_index("timestamp", inplace=True)
+        
+        if visualization_type == "candlestick":
+            # Create candlestick chart
+            fig, ax = plt.subplots(figsize=(12, 8))
+            
+            # Plot price data as candlesticks
+            _plot_candlesticks(ax, df)
+            
+            # Overlay indicators if provided
+            if indicators_data:
+                _overlay_indicators(ax, df, indicators_data)
+            
+            # Set title and labels
+            ax.set_title(f"{ohlcv_data.instrument} - {ohlcv_data.timeframe}", fontsize=14)
+            ax.set_xlabel("Date", fontsize=12)
+            ax.set_ylabel("Price", fontsize=12)
+            ax.grid(True, alpha=0.3)
+            plt.xticks(rotation=45)
+            
+            # Beautify the x-labels
+            fig.autofmt_xdate()
+            
+            # Adjust layout
+            fig.tight_layout()
+            
+        elif visualization_type == "multi_panel":
+            # Create multi-panel visualization with price and indicators in separate panels
+            if indicators_data:
+                fig, axs = _create_multi_panel_chart(df, indicators_data, ohlcv_data.instrument, ohlcv_data.timeframe)
+            else:
+                # If no indicators, create a simple price chart
+                fig, ax = plt.subplots(figsize=(12, 8))
+                ax.plot(df.index, df["close"], label="Close Price")
+                ax.set_title(f"{ohlcv_data.instrument} - {ohlcv_data.timeframe}", fontsize=14)
+                ax.set_xlabel("Date", fontsize=12)
+                ax.set_ylabel("Price", fontsize=12)
+                ax.grid(True, alpha=0.3)
+                ax.legend()
+                fig.autofmt_xdate()
+                fig.tight_layout()
+                
+        else:  # Default chart
+            # Create a simple line chart
+            fig, ax = plt.subplots(figsize=(12, 8))
+            
+            # Plot price data
+            ax.plot(df.index, df["close"], label="Close Price")
+            
+            # Overlay indicators if provided
+            if indicators_data:
+                _overlay_indicators(ax, df, indicators_data)
+            
+            # Set title and labels
+            ax.set_title(f"{ohlcv_data.instrument} - {ohlcv_data.timeframe}", fontsize=14)
+            ax.set_xlabel("Date", fontsize=12)
+            ax.set_ylabel("Price", fontsize=12)
+            ax.grid(True, alpha=0.3)
+            ax.legend()
+            
+            # Beautify the x-labels
+            fig.autofmt_xdate()
+            
+            # Adjust layout
+            fig.tight_layout()
+        
+        # Convert figure to base64
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=100)
+        buf.seek(0)
+        img_str = base64.b64encode(buf.read()).decode('utf-8')
+        
+        # Create result
+        return {
+            "visualization_type": visualization_type,
+            "image_data": img_str,
+            "metadata": {
+                "instrument": ohlcv_data.instrument,
+                "timeframe": ohlcv_data.timeframe,
+                "data_points": len(df),
+                "start_date": df.index[0].strftime('%Y-%m-%d %H:%M:%S') if len(df) > 0 else None,
+                "end_date": df.index[-1].strftime('%Y-%m-%d %H:%M:%S') if len(df) > 0 else None,
+                "indicators": list(indicators_data.keys()) if indicators_data else []
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error generating indicator visualization: {e}")
+        # Create a simple error diagram
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.text(0.5, 0.5, f"Error generating visualization:\n{str(e)}", 
+                ha='center', va='center', fontsize=12)
+        ax.axis('off')
+        
+        # Convert figure to base64
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=100)
+        buf.seek(0)
+        img_str = base64.b64encode(buf.read()).decode('utf-8')
+        
+        return {
+            "visualization_type": "error",
+            "image_data": img_str,
+            "metadata": {
+                "error": str(e)
+            }
+        }
+
+def _plot_candlesticks(ax, df):
+    """Helper to plot candlesticks on an axis."""
+    # Get width for candlesticks (timedelta in days)
+    width = 0.8
+    if len(df) > 1:
+        time_diff = df.index[1] - df.index[0]
+        if hasattr(time_diff, 'days'):
+            width = 0.8 * time_diff.days
+        else:
+            # For intraday data, use a fraction of a day
+            width = 0.8 * (time_diff.total_seconds() / (24 * 60 * 60))
+    
+    # Plot candlesticks
+    up = df[df.close >= df.open]
+    down = df[df.close < df.open]
+    
+    # Up candles
+    ax.bar(up.index, up.close - up.open, width, bottom=up.open, color='green', alpha=0.5)
+    ax.bar(up.index, up.high - up.close, width * 0.1, bottom=up.close, color='green', alpha=0.5)
+    ax.bar(up.index, up.open - up.low, width * 0.1, bottom=up.low, color='green', alpha=0.5)
+    
+    # Down candles
+    ax.bar(down.index, down.open - down.close, width, bottom=down.close, color='red', alpha=0.5)
+    ax.bar(down.index, down.high - down.open, width * 0.1, bottom=down.open, color='red', alpha=0.5)
+    ax.bar(down.index, down.close - down.low, width * 0.1, bottom=down.low, color='red', alpha=0.5)
+
+def _overlay_indicators(ax, df, indicators_data):
+    """Helper to overlay indicators on a price chart."""
+    
+    colors = ['blue', 'green', 'purple', 'orange', 'brown', 'pink', 'gray', 'cyan']
+    color_index = 0
+    
+    for indicator_name, indicator_data in indicators_data.items():
+        if "error" in indicator_data:
+            continue
+            
+        values = indicator_data.get("values", {})
+        
+        # Handle different indicator value structures
+        if isinstance(values, dict):
+            if all(isinstance(v, dict) for v in values.values()):
+                # Multi-component indicator (e.g., MACD, Bollinger Bands)
+                for component, component_values in values.items():
+                    # Convert values to a list aligned with DataFrame index
+                    indicator_values = []
+                    for timestamp in df.index:
+                        ts_str = str(timestamp)
+                        if ts_str in component_values:
+                            indicator_values.append(component_values[ts_str])
+                        else:
+                            indicator_values.append(np.nan)
+                    
+                    # Choose next color
+                    color = colors[color_index % len(colors)]
+                    color_index += 1
+                    
+                    # Plot the indicator
+                    ax.plot(df.index, indicator_values, label=f"{indicator_name} ({component})", color=color)
+            else:
+                # Single-component indicator
+                # Convert values to a list aligned with DataFrame index
+                indicator_values = []
+                for timestamp in df.index:
+                    ts_str = str(timestamp)
+                    if ts_str in values:
+                        indicator_values.append(values[ts_str])
+                    else:
+                        indicator_values.append(np.nan)
+                
+                # Choose next color
+                color = colors[color_index % len(colors)]
+                color_index += 1
+                
+                # Plot the indicator
+                ax.plot(df.index, indicator_values, label=indicator_name, color=color)
+
+def _create_multi_panel_chart(df, indicators_data, instrument, timeframe):
+    """
+    Create a multi-panel chart with price and indicators in separate panels.
+    
+    Args:
+        df: DataFrame with OHLCV data
+        indicators_data: Dictionary of indicator data
+        instrument: Instrument symbol
+        timeframe: Timeframe
+        
+    Returns:
+        Figure and axes
+    """
+    # Analyze indicator types to determine panel layout
+    overlay_indicators = []  # Indicators that overlay on price
+    separate_indicators = []  # Indicators that need separate panels
+    
+    for indicator_name, indicator_data in indicators_data.items():
+        if "error" in indicator_data:
+            continue
+            
+        # Check if overlay flag is specified
+        if "info" in indicator_data and "overlay" in indicator_data["info"]:
+            if indicator_data["info"]["overlay"]:
+                overlay_indicators.append(indicator_name)
+            else:
+                separate_indicators.append(indicator_name)
+        else:
+            # Make a best guess based on indicator type
+            if indicator_name.lower() in ["bollinger_bands", "sma", "ema", "vwap"]:
+                overlay_indicators.append(indicator_name)
+            else:
+                separate_indicators.append(indicator_name)
+    
+    # Create figure with price panel plus one panel per separate indicator
+    panel_count = 1 + len(separate_indicators)
+    if panel_count > 4:
+        panel_count = 4  # Cap at 4 panels for readability
+    
+    fig, axs = plt.subplots(panel_count, 1, figsize=(12, 8 * (panel_count * 0.5)), sharex=True)
+    
+    # If only one panel, axs won't be an array
+    if panel_count == 1:
+        axs = [axs]
+    
+    # Plot price in the main panel
+    price_ax = axs[0]
+    price_ax.plot(df.index, df["close"], label="Close Price", color='black')
+    
+    # Overlay indicators on price panel
+    if overlay_indicators:
+        for indicator_name in overlay_indicators:
+            indicator_data = indicators_data[indicator_name]
+            if "error" not in indicator_data:
+                values = indicator_data.get("values", {})
+                _plot_indicator_on_axis(price_ax, df, indicator_name, values)
+    
+    price_ax.set_title(f"{instrument} - {timeframe}", fontsize=14)
+    price_ax.set_ylabel("Price", fontsize=12)
+    price_ax.grid(True, alpha=0.3)
+    price_ax.legend()
+    
+    # Plot separate indicators in their own panels
+    for i, indicator_name in enumerate(separate_indicators[:panel_count-1]):
+        indicator_data = indicators_data[indicator_name]
+        if "error" not in indicator_data:
+            values = indicator_data.get("values", {})
+            _plot_indicator_on_axis(axs[i+1], df, indicator_name, values)
+            
+            axs[i+1].set_ylabel(indicator_name, fontsize=12)
+            axs[i+1].grid(True, alpha=0.3)
+            axs[i+1].legend()
+    
+    # Set x-axis label on the bottom panel
+    axs[-1].set_xlabel("Date", fontsize=12)
+    
+    # Adjust layout
+    fig.tight_layout()
+    plt.subplots_adjust(hspace=0.1)
+    
+    return fig, axs
+
+def _plot_indicator_on_axis(ax, df, indicator_name, values):
+    """
+    Plot an indicator on a specified axis.
+    
+    Args:
+        ax: Matplotlib axis
+        df: DataFrame with price data
+        indicator_name: Name of the indicator
+        values: Indicator values
+    """
+    colors = ['blue', 'green', 'purple', 'orange', 'brown', 'pink', 'gray', 'cyan']
+    color_index = 0
+    
+    if all(isinstance(v, dict) for v in values.values()):
+        # Multi-component indicator
+        for component, component_values in values.items():
+            # Convert values to a list aligned with DataFrame index
+            indicator_values = []
+            for timestamp in df.index:
+                ts_str = str(timestamp)
+                if ts_str in component_values:
+                    indicator_values.append(component_values[ts_str])
+                else:
+                    indicator_values.append(np.nan)
+            
+            # Choose next color
+            color = colors[color_index % len(colors)]
+            color_index += 1
+            
+            # Plot the indicator
+            ax.plot(df.index, indicator_values, label=f"{indicator_name} ({component})", color=color)
+    else:
+        # Single-component indicator
+        # Convert values to a list aligned with DataFrame index
+        indicator_values = []
+        for timestamp in df.index:
+            ts_str = str(timestamp)
+            if ts_str in values:
+                indicator_values.append(values[ts_str])
+            else:
+                indicator_values.append(np.nan)
+        
+        # Choose color
+        color = colors[color_index % len(colors)]
+        
+        # Plot the indicator
+        ax.plot(df.index, indicator_values, label=indicator_name, color=color)
 
 """
 Example HTML template for embedding visualizations:

@@ -3,6 +3,7 @@ from .base import Agent
 from langchain_anthropic import ChatAnthropic
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
+from .data_feature_agent import DataFeatureAgent
 
 class MasterAgent(Agent):
     """
@@ -28,12 +29,39 @@ class MasterAgent(Agent):
         # Initialize state
         self.conversation_state = {}
         
-        # Initialize specialized agents (placeholders for now)
-        # Will be initialized as they're implemented
+        # Initialize specialized agents
+        # For testing, we'll conditionally initialize to avoid DB connections in tests
+        try:
+            # Try to initialize DataFeatureAgent
+            from ..database.influxdb import InfluxDBClient
+            from ..services.indicators import IndicatorService
+            from ..services.data_availability import DataAvailabilityService
+            from ..services.data_retrieval import DataRetrievalService
+            
+            # Create services with shared dependencies
+            influxdb_client = InfluxDBClient()
+            indicator_service = IndicatorService()
+            data_availability_service = DataAvailabilityService(influxdb_client=influxdb_client)
+            data_retrieval_service = DataRetrievalService(
+                influxdb_client=influxdb_client,
+                indicator_service=indicator_service
+            )
+            
+            # Initialize DataFeatureAgent with shared services
+            data_agent = DataFeatureAgent(
+                indicator_service=indicator_service,
+                data_availability_service=data_availability_service,
+                data_retrieval_service=data_retrieval_service
+            )
+        except Exception as e:
+            # If initialization fails, use None for testing
+            data_agent = None
+            
+        # Set up agent dictionary
         self.specialized_agents = {
             "conversation": None,  # ConversationalAgent(),
             "validation": None,    # ValidationAgent(),
-            "data": None,          # DataFeatureAgent(),
+            "data": data_agent,    # DataFeatureAgent
             "code": None,          # CodeAgent(),
             "feedback": None,      # FeedbackAgent()
         }
@@ -47,7 +75,7 @@ class MasterAgent(Agent):
             Available agents:
             - conversation: For natural language interaction, explaining concepts, guiding users
             - validation: For checking if parameters and strategy components are valid
-            - data: For retrieving market data and calculating indicators
+            - data: For retrieving market data, calculating indicators, checking data availability, and creating visualizations
             - code: For generating strategy code
             - feedback: For analyzing backtest results and providing improvement suggestions
             
@@ -74,10 +102,24 @@ class MasterAgent(Agent):
         Returns:
             Name of the agent that should handle the message
         """
-        # For testing, we're using a simplified router
+        # Use keyword-based routing for now
         # In production, this would use the LLM for more sophisticated routing
         
-        # Placeholder for testing - always route to conversation agent
+        # Data/Feature Agent keywords
+        data_keywords = [
+            "market data", "price data", "historical data", "ohlcv", 
+            "indicator", "indicators", "technical analysis", "calculate", "visualization",
+            "chart", "graph", "plot", "data availability", "backtest data"
+        ]
+        
+        # Check for data-related keywords
+        message_lower = message.lower()
+        if any(keyword in message_lower for keyword in data_keywords):
+            return "data"
+            
+        # Add other agent keywords and routing in the future
+        
+        # Default to conversation agent
         return "conversation"
         
         # Production implementation would look like:
@@ -140,11 +182,12 @@ class MasterAgent(Agent):
         # Check if agent exists
         if destination not in self.specialized_agents or self.specialized_agents[destination] is None:
             # Agent not available - create error response
+            agent_name = "Data/Feature Agent" if destination == "data" else f"'{destination}' agent"
             response = self.create_message(
                 recipient=message["sender"],
                 message_type="error",
                 content={
-                    "error": f"Agent '{destination}' not available",
+                    "error": f"{agent_name} not available",
                     "message": "The system is still being initialized. Try again later."
                 },
                 context=message.get("context", {})

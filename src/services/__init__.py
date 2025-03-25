@@ -9,10 +9,12 @@ from .data_versioning import DataVersioningService
 from .data_availability import DataAvailabilityService
 from .data_retrieval import DataRetrievalService
 from .indicators import IndicatorService
+from .data_integrity import DataIntegrityService
 
 __all__ = [
     "DataVersioningService",
     "DataAvailabilityService",
     "DataRetrievalService",
-    "IndicatorService"
+    "IndicatorService",
+    "DataIntegrityService"
 ]

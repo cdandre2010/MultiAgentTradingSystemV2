@@ -1,11 +1,16 @@
 import pytest
 import sys
 import os
+from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
 
 # Add the src directory to the path so we can import our modules
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+# Comment this out for now to allow testing of the DataFeatureAgent
+# patch('src.agents.data_feature_agent.DataFeatureAgent', MagicMock()).start()
+
+# Import the app after patching to avoid initialization errors
 from src.app.main import app
 
 
