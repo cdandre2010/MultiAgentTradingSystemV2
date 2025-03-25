@@ -36,6 +36,10 @@ networkx>=3.0.0
 pandas>=2.0.0
 pygraphviz>=1.10.0
 
+# Technical Analysis
+ta-lib>=0.4.24
+numpy>=1.24.0
+
 # Utilities
 black>=24.0.0
 flake8>=7.0.0

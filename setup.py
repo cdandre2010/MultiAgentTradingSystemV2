@@ -23,6 +23,8 @@ setup(
         "numpy>=1.21.0",
         "redis>=4.3.0",
         "bcrypt>=4.3.0",
+        # Technical Analysis
+        "ta-lib>=0.4.24",
         # Data source connectors
         "aiohttp>=3.8.0",
         "yfinance>=0.2.0",

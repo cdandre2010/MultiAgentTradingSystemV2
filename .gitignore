@@ -26,6 +26,8 @@ coverage.xml
 venv/
 env/
 ENV/
+venv_old/
+venv_win/
 
 # IDE files
 .idea/
