@@ -6,7 +6,7 @@ import json
 import uuid
 import logging
 from datetime import datetime
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Union
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -19,6 +19,7 @@ from .knowledge_integration import (
     enhance_validation_feedback,
     enhance_strategy_with_knowledge
 )
+from ..models.market_data import MarketDataRequest
 
 
 class ConversationalAgent(Agent):
@@ -83,6 +84,9 @@ class ConversationalAgent(Agent):
             return self._handle_user_request(message, session_id)
         elif message_type == "feedback" and sender == "validation_agent":
             return self._handle_validation_feedback(message, session_id)
+        elif message_type == "request" and sender == "data_feature":
+            # Handle data-related messages from the DataFeatureAgent
+            return self._handle_data_feature_response(message, session_id)
         else:
             # Default response for unhandled message types
             return self.create_message(
@@ -109,6 +113,58 @@ class ConversationalAgent(Agent):
         use_knowledge_graph = context.get("use_knowledge_graph", True)  # Default to using knowledge graph
         
         user_text = content.get("text", "")
+        
+        # Check if this is a data-related request
+        data_keywords = [
+            "chart", "graph", "visualization", "plot", "market data", 
+            "indicator", "technical analysis", "moving average", "rsi", 
+            "macd", "bollinger", "data availability", "historical data"
+        ]
+        
+        is_data_request = any(keyword.lower() in user_text.lower() for keyword in data_keywords)
+        
+        if is_data_request:
+            # Try to determine the specific type of data request
+            if any(keyword in user_text.lower() for keyword in ["chart", "graph", "plot", "visualization"]):
+                # This appears to be a visualization request
+                return self.handle_data_visualization_request(message)
+            elif any(keyword in user_text.lower() for keyword in ["availability", "available", "have data", "data for"]):
+                # This appears to be a data availability request
+                return self.handle_data_availability_request(message)
+            elif any(keyword in user_text.lower() for keyword in ["what is", "explain", "how does", "definition"]) and any(
+                    indicator in user_text.lower() for indicator in ["indicator", "moving average", "sma", "ema", "rsi", "macd", "bollinger"]):
+                # This appears to be an indicator explanation request
+                
+                # Determine which indicator is being asked about
+                indicators = {
+                    "sma": ["simple moving average", "sma"],
+                    "ema": ["exponential moving average", "ema"],
+                    "rsi": ["relative strength index", "rsi"],
+                    "macd": ["moving average convergence divergence", "macd"],
+                    "bb": ["bollinger bands", "bollinger"]
+                }
+                
+                indicator_type = None
+                for ind_type, terms in indicators.items():
+                    if any(term in user_text.lower() for term in terms):
+                        indicator_type = ind_type
+                        break
+                
+                if indicator_type:
+                    # Extract parameters from the request
+                    params = {}
+                    if "day" in user_text or "period" in user_text:
+                        # Try to extract a number
+                        import re
+                        numbers = re.findall(r'\d+', user_text)
+                        if numbers:
+                            params["window"] = int(numbers[0])
+                        else:
+                            params["window"] = 20  # Default
+                    
+                    return self.handle_indicator_explanation_request(message, indicator_type, params)
+        
+        # If not a specific data request, continue with normal processing
         
         # Prepare prompt based on conversation history
         history = self.session_state[session_id]["conversation_history"]
@@ -404,3 +460,383 @@ class ConversationalAgent(Agent):
             recommendations["explanation"] = f"Error retrieving recommendations: {str(e)}"
             
         return recommendations
+        
+    def create_data_feature_request(self, request_type: str, data_params: Dict[str, Any], session_id: str) -> Dict[str, Any]:
+        """
+        Create a properly formatted request message for the DataFeatureAgent.
+        
+        Args:
+            request_type: The type of request (e.g., 'create_visualization', 'check_data_availability')
+            data_params: The parameters for the request
+            session_id: The session ID
+            
+        Returns:
+            A formatted message for the DataFeatureAgent
+        """
+        return self.create_message(
+            recipient="data_feature",
+            message_type="request",
+            content={
+                "type": request_type,
+                "data": data_params
+            },
+            context={"session_id": session_id}
+        )
+    
+    def format_data_response(self, data_response: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Format a data response from the DataFeatureAgent into a user-friendly message.
+        
+        Args:
+            data_response: The response from the DataFeatureAgent
+            
+        Returns:
+            A user-friendly message
+        """
+        # Extract information from the data response
+        content = data_response.get("content", {})
+        response_type = content.get("type", "")
+        data = content.get("data", {})
+        context = data_response.get("context", {})
+        session_id = context.get("session_id", "default")
+        
+        # Format the response based on the type
+        explanation = None
+        
+        if response_type == "data_availability_result":
+            availability = data.get("availability", {})
+            overall = availability.get("overall", {})
+            is_complete = overall.get("is_complete", False)
+            highest_availability = overall.get("highest_availability", 0)
+            source = overall.get("source", "unknown")
+            instrument = data.get("instrument", "")
+            timeframe = data.get("timeframe", "")
+            start_date = data.get("start_date", "")
+            end_date = data.get("end_date", "")
+            
+            prompt = f"""
+            Create a user-friendly response explaining the availability of market data for {instrument} 
+            on a {timeframe} timeframe from {start_date} to {end_date}.
+            
+            The data is {highest_availability:.1f}% complete from the {source} source.
+            The data is {'complete' if is_complete else 'incomplete'}.
+            
+            Explain this in a helpful, conversational way.
+            """
+            
+            explanation = self.llm.generate(prompt)
+            
+        elif response_type == "visualization_result":
+            visualization_data = data.get("data", {})
+            instrument = visualization_data.get("instrument", "")
+            timeframe = visualization_data.get("timeframe", "")
+            indicators = list(visualization_data.get("indicators", {}).keys())
+            indicator_text = ", ".join(indicators) if indicators else "no indicators"
+            
+            # In a real implementation, this would include a URL to the visualization
+            visualization_url = f"/api/visualizations/{uuid.uuid4()}"
+            
+            prompt = f"""
+            Create a user-friendly response explaining that a chart has been created for {instrument} 
+            on a {timeframe} timeframe with {indicator_text}.
+            Keep it concise and conversational.
+            """
+            
+            explanation = self.llm.generate(prompt)
+            
+            # Return a response with both text and visualization URL
+            return self.create_message(
+                recipient="user",
+                message_type="response",
+                content={
+                    "text": explanation,
+                    "visualization_url": visualization_url
+                },
+                context={"session_id": session_id}
+            )
+            
+        elif response_type == "indicator_result":
+            indicator_data = data.get("data", {})
+            indicator_type = indicator_data.get("type", "")
+            metadata = indicator_data.get("metadata", {})
+            
+            prompt = f"""
+            Create a user-friendly response explaining that the {indicator_type} indicator has been calculated.
+            Parameters: {json.dumps(metadata.get('params', {}))}.
+            Briefly describe what this indicator is used for in trading.
+            """
+            
+            explanation = self.llm.generate(prompt)
+            
+        elif response_type == "error":
+            error = content.get("error", "An unknown error occurred")
+            
+            prompt = f"""
+            Create a user-friendly response explaining that an error occurred with a data request:
+            "{error}"
+            
+            Suggest what the user might do to resolve this issue.
+            """
+            
+            explanation = self.llm.generate(prompt)
+            
+        else:
+            # Default response for unknown types
+            explanation = f"I received a response from our data system of type '{response_type}', but I'm not sure how to interpret it. Please contact support if this issue persists."
+        
+        # Create the response message
+        return self.create_message(
+            recipient="user",
+            message_type="response",
+            content={"text": explanation},
+            context={"session_id": session_id}
+        )
+    
+    def handle_data_visualization_request(self, message: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Handle a request for data visualization.
+        
+        Args:
+            message: The user message requesting a visualization
+            
+        Returns:
+            A response to the user
+        """
+        session_id = message.get("context", {}).get("session_id", "default")
+        user_text = message.get("content", {}).get("text", "")
+        
+        # Extract visualization parameters from the message using LLM
+        system_prompt = """
+        Extract the visualization parameters from the user's request.
+        Respond with ONLY a JSON object containing the following fields:
+        - visualization_type: The type of chart (candlestick, line, etc.)
+        - instrument: The trading symbol (e.g., "AAPL", "BTC")
+        - timeframe: The chart timeframe (e.g., "1d", "1h", "15m")
+        - start_date: The start date in YYYY-MM-DD format
+        - end_date: The end date in YYYY-MM-DD format
+        - indicators: A list of indicator configs, each with type and parameters
+        
+        Example:
+        {
+            "visualization_type": "candlestick",
+            "instrument": "AAPL",
+            "timeframe": "1d",
+            "start_date": "2023-01-01",
+            "end_date": "2023-01-31",
+            "indicators": [{"type": "sma", "parameters": {"window": 20}}]
+        }
+        
+        If information is missing, use reasonable defaults.
+        """
+        
+        try:
+            # Extract parameters
+            params = self.llm.extract_json(user_text, system_prompt)
+            
+            # Create a request for the DataFeatureAgent
+            data_request = self.create_data_feature_request(
+                "create_visualization",
+                params,
+                session_id
+            )
+            
+            # In a real implementation, the request would be sent to the DataFeatureAgent
+            # and the response would be processed. For now, we'll simulate the response.
+            
+            # Format a mock response
+            mock_response = {
+                "message_id": str(uuid.uuid4()),
+                "timestamp": datetime.now().isoformat(),
+                "sender": "data_feature",
+                "recipient": "conversational_agent",
+                "message_type": "response",
+                "content": {
+                    "type": "visualization_result",
+                    "data": {
+                        "data": {
+                            "type": params.get("visualization_type", "candlestick"),
+                            "instrument": params.get("instrument", ""),
+                            "timeframe": params.get("timeframe", ""),
+                            "indicators": {
+                                f"{indicator['type']}": {} for indicator in params.get("indicators", [])
+                            }
+                        },
+                        "format": "json"
+                    }
+                },
+                "context": {"session_id": session_id}
+            }
+            
+            # Format the response for the user
+            user_response = self.format_data_response(mock_response)
+            
+            return user_response
+            
+        except Exception as e:
+            logger.error(f"Error handling visualization request: {e}")
+            return self.create_message(
+                recipient="user",
+                message_type="error",
+                content={"text": f"I'm having trouble creating that visualization. {str(e)}"},
+                context={"session_id": session_id}
+            )
+    
+    def handle_data_availability_request(self, message: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Handle a request to check data availability.
+        
+        Args:
+            message: The user message asking about data availability
+            
+        Returns:
+            A response to the user
+        """
+        session_id = message.get("context", {}).get("session_id", "default")
+        user_text = message.get("content", {}).get("text", "")
+        
+        # Extract data availability parameters from the message using LLM
+        system_prompt = """
+        Extract the data availability parameters from the user's request.
+        Respond with ONLY a JSON object containing the following fields:
+        - instrument: The trading symbol (e.g., "AAPL", "BTC")
+        - timeframe: The data timeframe (e.g., "1d", "1h", "15m")
+        - start_date: The start date in YYYY-MM-DD format
+        - end_date: The end date in YYYY-MM-DD format
+        
+        Example:
+        {
+            "instrument": "AAPL",
+            "timeframe": "1d",
+            "start_date": "2023-01-01", 
+            "end_date": "2023-01-31"
+        }
+        
+        If information is missing, use reasonable defaults.
+        """
+        
+        try:
+            # Extract parameters
+            params = self.llm.extract_json(user_text, system_prompt)
+            
+            # Create a request for the DataFeatureAgent
+            data_request = self.create_data_feature_request(
+                "check_data_availability",
+                params,
+                session_id
+            )
+            
+            # In a real implementation, the request would be sent to the DataFeatureAgent
+            # and the response would be processed. For now, we'll simulate the response.
+            
+            # Format a mock response
+            mock_response = {
+                "message_id": str(uuid.uuid4()),
+                "timestamp": datetime.now().isoformat(),
+                "sender": "data_feature",
+                "recipient": "conversational_agent",
+                "message_type": "response",
+                "content": {
+                    "type": "data_availability_result",
+                    "data": {
+                        "availability": {
+                            "overall": {
+                                "is_complete": True,
+                                "highest_availability": 98.5,
+                                "source": "influxdb"
+                            }
+                        },
+                        "instrument": params.get("instrument", ""),
+                        "timeframe": params.get("timeframe", ""),
+                        "start_date": params.get("start_date", ""),
+                        "end_date": params.get("end_date", "")
+                    }
+                },
+                "context": {"session_id": session_id}
+            }
+            
+            # Format the response for the user
+            user_response = self.format_data_response(mock_response)
+            
+            return user_response
+            
+        except Exception as e:
+            logger.error(f"Error handling data availability request: {e}")
+            return self.create_message(
+                recipient="user",
+                message_type="error",
+                content={"text": f"I'm having trouble checking data availability. {str(e)}"},
+                context={"session_id": session_id}
+            )
+    
+    def handle_indicator_explanation_request(self, message: Dict[str, Any], indicator_type: str, parameters: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Handle a request for an explanation of a technical indicator.
+        
+        Args:
+            message: The user message asking about an indicator
+            indicator_type: The type of indicator (e.g., "sma", "rsi")
+            parameters: The parameters for the indicator
+            
+        Returns:
+            A response to the user
+        """
+        session_id = message.get("context", {}).get("session_id", "default")
+        
+        # Create a prompt to generate an explanation of the indicator
+        if indicator_type.lower() == "sma":
+            indicator_name = "Simple Moving Average"
+        elif indicator_type.lower() == "ema":
+            indicator_name = "Exponential Moving Average"
+        elif indicator_type.lower() == "rsi":
+            indicator_name = "Relative Strength Index"
+        elif indicator_type.lower() == "macd":
+            indicator_name = "Moving Average Convergence Divergence"
+        elif indicator_type.lower() == "bb":
+            indicator_name = "Bollinger Bands"
+        else:
+            indicator_name = indicator_type.upper()
+        
+        params_str = ", ".join(f"{k}={v}" for k, v in parameters.items())
+        
+        prompt = f"""
+        Explain the {indicator_name} ({indicator_type.upper()}) technical indicator with parameters {params_str}.
+        Include:
+        - How it is calculated
+        - What it is used for in trading
+        - How traders interpret its signals
+        - Any common configurations or variations
+        
+        Keep the explanation concise but informative.
+        """
+        
+        # Generate the explanation
+        explanation = self.llm.generate(prompt)
+        
+        # Add the explanation to the session history
+        if session_id in self.session_state:
+            self.session_state[session_id]["conversation_history"].append({
+                "role": "assistant",
+                "content": explanation
+            })
+        
+        # Create the response message
+        return self.create_message(
+            recipient="user",
+            message_type="response",
+            content={"text": explanation},
+            context={"session_id": session_id}
+        )
+    
+    def _handle_data_feature_response(self, message: Dict[str, Any], session_id: str) -> Dict[str, Any]:
+        """
+        Handle a message from the DataFeatureAgent.
+        
+        Args:
+            message: The message from the DataFeatureAgent
+            session_id: The session ID
+            
+        Returns:
+            Response message to the user
+        """
+        # Format the data response into a user-friendly message
+        return self.format_data_response(message)
